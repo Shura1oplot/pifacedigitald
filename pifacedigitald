@@ -1,0 +1,335 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import sys
+import os
+import atexit
+import subprocess
+import logging
+import re
+import argparse
+from xmlrpc.server import SimpleXMLRPCServer, SimpleXMLRPCRequestHandler
+import pifacedigitalio
+from pifacedigitalio import MAX_BOARDS
+from pifacedigitalio.core import _get_pifacedigital
+
+
+__version_info__ = (0, 1, 0)
+__version__ = ".".join(map(str, __version_info__))
+
+
+def _check_type(object_, type_):
+    if not isinstance(object_, type_):
+        raise TypeError(
+            "hardware_addr must be {}, not {}".format(
+                type_.__name__,
+                object_.__class__.__name__,
+            )
+        )
+
+
+def _check_hardware_addr(hardware_addr):
+    _check_type(hardware_addr, int)
+
+    if hardware_addr not in range(MAX_BOARDS):
+        raise TypeError(
+            "hardware_addr must be in {lower_addr}..{higher_addr}".format(
+                lower_addr=0,
+                higher_addr=MAX_BOARDS-1,
+            )
+        )
+
+
+def _check_pin_num(pin_num):
+    _check_type(pin_num, int)
+
+    if pin_num not in range(8):
+        raise TypeError("pin_num must be in 0..7")
+
+
+def _check_pin_value(value):
+    _check_type(value, int)
+
+    if value not in (0, 1):
+        raise TypeError("value must be 1 or 0")
+
+
+def _check_port_value(value):
+    _check_type(value, int)
+
+    if not (0 <= value <= 255):
+        raise TypeError("value must be in 0..255")
+
+
+def write_output_port(hardware_addr, value):
+    _check_hardware_addr(hardware_addr)
+    _check_port_value(value)
+
+    port = _get_pifacedigital(hardware_addr).output_port
+    port.value = value
+    result = port.value
+
+    logging.info("XML-RPC: write_output_port({}, {}) -> 0b{:08b}".format(
+        hardware_addr, value, result))
+
+    return result
+
+
+def write_output_pin(hardware_addr, pin_num, value):
+    _check_hardware_addr(hardware_addr)
+    _check_pin_num(pin_num)
+    _check_pin_value(value)
+
+    pin = _get_pifacedigital(hardware_addr).output_pins[pin_num]
+    pin.value = value
+    result = pin.value
+
+    logging.info("XML-RPC: write_output_pin({}, {}, {}) -> {}".format(
+        hardware_addr, pin_num, value, result))
+
+    return result
+
+
+def read_output_port(hardware_addr):
+    _check_hardware_addr(hardware_addr)
+
+    result = _get_pifacedigital(hardware_addr).output_port.value
+
+    logging.info("XML-RPC: read_output_port({}) -> 0b{:08b}".format(hardware_addr, result))
+
+    return result
+
+
+def read_output_pin(hardware_addr, pin_num):
+    _check_hardware_addr(hardware_addr)
+    _check_pin_num(pin_num)
+
+    result = _get_pifacedigital(hardware_addr).output_pins[pin_num].value
+
+    logging.info("XML-RPC: read_output_pin({}, {}) -> {}".format(hardware_addr, pin_num, result))
+
+    return result
+
+
+def read_input_port(hardware_addr):
+    _check_hardware_addr(hardware_addr)
+
+    result = _get_pifacedigital(hardware_addr).input_port.value
+
+    logging.info("XML-RPC: read_input_port({}) -> 0b{:08b}".format(hardware_addr, result))
+
+    return result
+
+
+def read_input_pin(hardware_addr, pin_num):
+    _check_hardware_addr(hardware_addr)
+    _check_pin_num(pin_num)
+
+    result = _get_pifacedigital(hardware_addr).input_pins[pin_num].value
+
+    logging.info("XML-RPC: read_input_pin({}, {}) -> {}".format(hardware_addr, pin_num, result))
+
+    return result
+
+
+listners = []
+
+
+def init_event_handler(exe_path):
+    if listners:
+        return
+
+    dev_null_r = open("/dev/null", "r")
+    dev_null_w = open("/dev/null", "w")
+
+    def on_event(address, pin_num, direction, timestamp):
+        logging.info("event: address={} pin_num={} direction={} timestamp={}".format(
+            address, pin_num, direction, timestamp))
+
+        if not os.access(exe_path, os.X_OK):
+            logging.error("cannot execute: {}".format(exe_path))
+            return
+
+        args = map(str, (exe_path, address, pin_num, direction, timestamp))
+        retcode = subprocess.call(args, stdin=dev_null_r, stdout=dev_null_w,
+                                  stderr=dev_null_w, env={})
+
+        if retcode != 0:
+            logging.error("'{}' dies with {} code".format(retcode))
+
+    def get_handler(address):
+        def handler(event):
+            on_event(address, event.pin_num, event.direction, event.timestamp)
+
+        return handler
+
+    for address in range(MAX_BOARDS):
+        try:
+            pfd = _get_pifacedigital(address)
+        except pifacedigitalio.NoPiFaceDigitalError:
+            continue
+
+        listner = pifacedigitalio.InputEventListener(chip=pfd)
+        handler = get_handler(address)
+
+        for pin_num in range(8):
+            listner.register(pin_num, pifacedigitalio.IODIR_BOTH, handler)
+
+        logging.info("add event handlers: address={}".format(address))
+
+        listners.append(listner)
+
+    for listner in listners:
+        listner.activate()
+
+
+def xmlrpc_serve(host, port):
+    class XMLRPCRequestHandler(SimpleXMLRPCRequestHandler):
+
+        rpc_paths = ("/RPC2", )
+
+        def log_message(self, format, *args):
+            logging.info("HTTP server: %s - - [%s] %s", self.address_string(),
+                         self.log_date_time_string(), format % args)
+
+    server = SimpleXMLRPCServer((host, port), requestHandler=XMLRPCRequestHandler)
+
+    server.register_introspection_functions()
+    server.register_multicall_functions()
+
+    server.register_function(write_output_port)
+    server.register_function(write_output_pin)
+    server.register_function(read_output_port)
+    server.register_function(read_output_pin)
+    server.register_function(read_input_port)
+    server.register_function(read_input_pin)
+
+    logging.info("start XML-RPC server: http://{}:{}/ paths={}".format(
+        host, port, XMLRPCRequestHandler.rpc_paths))
+    server.serve_forever()
+
+
+def daemonize(pidfile, stdout, stderr):
+    # do the UNIX double-fork magic, see Stevens' "Advanced
+    # Programming in the UNIX Environment" for details (ISBN 0201563177)
+    # http://www.erlenstar.demon.co.uk/unix/faq_2.html#SEC16
+    try:
+        pid = os.fork()
+    except OSError as e:
+        sys.stderr.write("fork #1 failed: {} (errno: {})\n".format(e.strerror, e.errno))
+        sys.exit(1)
+
+    if pid > 0:
+        sys.exit(0)
+
+    # decouple from parent environment
+    os.chdir("/")
+    os.setsid()
+    os.umask(0)
+
+    try:
+        pid = os.fork()
+    except OSError as e:
+        sys.stderr.write("fork #2 failed: {} (errno: {})\n".format(e.strerror, e.errno))
+        sys.exit(1)
+
+    if pid > 0:
+        sys.exit(0)
+
+    # redirect standard file descriptors
+    si = open("/dev/null", "r")
+    os.dup2(si.fileno(), sys.stdin.fileno())
+
+    sys.stdout.flush()
+    so = open(stdout, "a+")
+    os.dup2(so.fileno(), sys.stdout.fileno())
+
+    sys.stderr.flush()
+    se = open(stderr, "a+", 0)
+    os.dup2(se.fileno(), sys.stderr.fileno())
+
+    atexit.register(lambda: os.remove(pidfile))
+    open(pidfile, "w+").write("{}\n".format(os.getpid()))
+
+
+def hostPortType(value):
+    match = re.match(r"^(?P<host>.+?)(?::(?P<port>\d+))?$", value)
+
+    if not match:
+        raise argparse.ArgumentTypeError("invalid host value")
+
+    return match.group("host"), match.group("port")
+
+
+def main(argv=sys.argv):
+    parser = argparse.ArgumentParser(
+        prog=os.path.basename(argv[0]),
+        description="PiFaceDigital daemon v{}".format(__version__),
+    )
+    parser.add_argument(
+        "-v", "--version",
+        action="version",
+        version="%(prog)s v{}".format(__version__),
+    )
+    parser.add_argument(
+        "-E", "--on-event",
+        default="/etc/pifacedigitald/event",
+        type=str,
+        metavar="FILE",
+        help="file to execute on each event (default: /etc/pifacedigitald/event)",
+    )
+    parser.add_argument(
+        "-L", "--listen",
+        default="localhost:8050",
+        type=hostPortType,
+        metavar="HOST[:PORT]",
+        help="host and port to listen (default: localhost:8050)",
+    )
+    parser.add_argument(
+        "-l", "--log-file",
+        default="/var/log/pifacedigitald.log",
+        type=str,
+        metavar="FILE",
+        help="path to log file (default: /var/log/pifacedigitald.log)",
+    )
+    parser.add_argument(
+        "-p", "--pid-file",
+        default="/var/run/pifacedigitald.pid",
+        type=str,
+        metavar="FILE",
+        help="path to pid file (default: /var/run/pifacedigitald.pid)",
+    )
+    parser.add_argument(
+        "-o", "--stdout",
+        default="/dev/null",
+        type=str,
+        metavar="FILE",
+        help="redirect stdout to file",
+    )
+    parser.add_argument(
+        "-e", "--stderr",
+        default="/dev/null",
+        type=str,
+        metavar="FILE",
+        help="redirect stderr to file",
+    )
+    args = parser.parse_args(argv[1:])
+
+    host, port = args.listen
+    port = int(port) if port else 8050
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(name)s %(levelname)s %(message)s",
+        filename=args.log_file,
+    )
+
+    daemonize(args.pid_file, args.stdout, args.stderr)
+
+    pifacedigitalio.init()
+    init_event_handler(args.on_event)
+    xmlrpc_serve(host, port)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

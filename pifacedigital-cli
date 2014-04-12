@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import sys
+import os
+import argparse
+from xmlrpc.client import ServerProxy
+
+
+__version_info__ = (0, 1, 0)
+__version__ = ".".join(map(str, __version_info__))
+
+
+def portType(value):
+    if value[0] == "i":
+        return "input"
+
+    return "output"
+
+
+def intType(value):
+    def parse(s):
+        if s.startswith("0b"):
+            return int(s[2:], base=2)
+
+        if s.startswith("0o"):
+            return int(s[2:], base=8)
+
+        if s.startswith("0x"):
+            return int(s[2:], base=16)
+
+        if len(s) > 1 and s.startswith("0"):
+            return int(s[1:], base=8)
+
+        return int(s)
+
+    try:
+        return parse(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("invalid int value")
+
+
+def main(argv=sys.argv):
+    prog = os.path.basename(argv[0])
+    parser = argparse.ArgumentParser(
+        prog=prog,
+        description="PiFaceDigital client v{}".format(__version__),
+    )
+    parser.add_argument(
+        "-v", "--version",
+        action="version",
+        version="%(prog)s v{}".format(__version__),
+    )
+    parser.add_argument(
+        "-u", "--url",
+        default=os.environ.get("PIFACEDIGITAL_SERVER", "http://localhost:8050/RPC2"),
+        type=str,
+        metavar="URL",
+        help="xml-rpc server url (default: http://localhost:8050/RPC2)",
+    )
+    parser.add_argument(
+        "-a", "--address",
+        default=0,
+        type=int,
+        choices=range(4),
+        metavar="0..3",
+        help="hardware address (default: 0)",
+    )
+    parser.add_argument(
+        "-w", "--write",
+        type=intType,
+        dest="value",
+        metavar="N",
+        help="write value to pin or port",
+    )
+    parser.add_argument(
+        "-b", "--binary",
+        action="store_true",
+        default=False,
+        help="print result in binary format",
+    )
+    parser.add_argument(
+        "-q", "--quite",
+        action="store_true",
+        default=False,
+        help="do not print result",
+    )
+    parser.add_argument(
+        "-e", "--exit-code",
+        action="store_true",
+        default=False,
+        help="result as return code",
+    )
+    parser.add_argument(
+        "port",
+        type=portType,
+        choices=("i", "input", "o", "output"),
+        metavar="i[nput]|o[utput]",
+        help="port",
+    )
+    parser.add_argument(
+        "pin",
+        nargs="?",
+        type=int,
+        choices=range(8),
+        metavar="0..7",
+        help="pin number (omit to read/write whole port)",
+    )
+    args = parser.parse_args(argv[1:])
+
+    if args.value:
+        if args.pin:
+            if args.value not in (0, 1):
+                parser.print_usage(file=sys.stderr)
+                print(("{}: error: argument -w/--write: invalid value: {} "
+                       "(expected 0 or 1)").format(prog, args.value),
+                      file=sys.stderr)
+                return 1
+
+        else:
+            if not 0 <= args.value <= 255:
+                parser.print_usage(file=sys.stderr)
+                print(("{}: error: argument -w/--write: invalid value: {} "
+                       "(choose from 0..255)").format(prog, args.value),
+                      file=sys.stderr)
+                return 1
+
+        if args.port == "input":
+            parser.print_usage(file=sys.stderr)
+            print("{}: error: argument -w/--write: cannot write to input port".format(prog),
+                  file=sys.stderr)
+            return 1
+
+    proxy = ServerProxy(args.url)
+
+    if args.port == "output":
+        if args.value is None:
+            if args.pin is None:
+                result = proxy.read_output_port(args.address)
+            else:
+                result = proxy.read_output_pin(args.address, args.pin)
+        else:
+            if args.pin is None:
+                result = proxy.write_output_port(args.address, args.value)
+            else:
+                result = proxy.write_output_pin(args.address, args.pin, args.value)
+    else:
+        if args.pin is None:
+            result = proxy.read_input_port(args.address)
+        else:
+            result = proxy.read_input_pin(args.address, args.pin)
+
+    if not args.quite:
+        print("{:{format}}".format(result, format="08b" if args.binary else "d"))
+
+    if args.exit_code:
+        return result
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

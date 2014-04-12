@@ -1,0 +1,21 @@
+#!/bin/sh
+
+PATH=/usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin
+export PATH
+
+PFD_ADDRESS="$1"
+PFD_PIN_NUM="$2"
+PFD_DIRECTION="$3"
+PFD_TIMESTAMP="$4"
+export PFD_ADDRESS PFD_PIN_NUM PFD_DIRECTION PFD_TIMESTAMP
+
+if [ "$PFD_DIRECTION" = 255 ]; then
+    exit 0
+fi
+
+if [ -x /etc/pifacedigitald/event.local ]; then
+    exec /etc/pifacedigitald/event.local "$@"
+fi
+
+run-parts /etc/pifacedigitald/event.d \
+     --arg="$1" --arg="$2" --arg="$3" --arg="$4"

@@ -1,4 +1,4 @@
-pifacedigitald
-==============
+PiFace Digital Daemon
+=====================
 
-PiFace Digital daemon. XML-RPC server + easy event handle with bash
+TODO: description.

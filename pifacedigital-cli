@@ -69,8 +69,8 @@ def main(argv=sys.argv):
         "-w", "--write",
         type=intType,
         dest="value",
-        metavar="N",
-        help="value to write to pin or port",
+        metavar="X",
+        help="write value to pin or port",
     )
     parser.add_argument(
         "-b", "--binary",

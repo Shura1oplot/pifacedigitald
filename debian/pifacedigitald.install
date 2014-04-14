@@ -1,0 +1,3 @@
+pifacedigitald usr/bin
+pifacedigital-cli usr/bin
+event etc/pifacedigitald

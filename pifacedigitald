@@ -8,7 +8,6 @@ import errno
 import atexit
 import subprocess
 import logging
-import re
 import argparse
 from xmlrpc.server import SimpleXMLRPCServer, SimpleXMLRPCRequestHandler
 import pifacedigitalio
@@ -243,11 +242,11 @@ def daemonize(pidfile, stdout, stderr):
     os.dup2(si.fileno(), sys.stdin.fileno())
 
     sys.stdout.flush()
-    so = open(stdout, "ab+")
+    so = open(stdout, "a+b")
     os.dup2(so.fileno(), sys.stdout.fileno())
 
     sys.stderr.flush()
-    se = open(stderr, "ab+", 0)
+    se = open(stderr, "a+b", 0)
     os.dup2(se.fileno(), sys.stderr.fileno())
 
     atexit.register(lambda: os.remove(pidfile))
@@ -311,15 +310,6 @@ class UnixFileLock(object):
         self.release()
 
 
-def hostPortType(value):
-    match = re.match(r"^(?P<host>.+?)(?::(?P<port>\d+))?$", value)
-
-    if not match:
-        raise argparse.ArgumentTypeError("invalid host value")
-
-    return match.group("host"), match.group("port")
-
-
 def main(argv=sys.argv):
     parser = argparse.ArgumentParser(
         prog=os.path.basename(argv[0]),
@@ -338,11 +328,16 @@ def main(argv=sys.argv):
         help="file to execute on each event (default: /etc/pifacedigitald/event)",
     )
     parser.add_argument(
-        "-L", "--listen",
-        default="localhost:8050",
-        type=hostPortType,
-        metavar="HOST[:PORT]",
-        help="host and port to listen (default: localhost:8050)",
+        "-H", "--host",
+        default="localhost",
+        type=str,
+        help="host to listen (default: localhost)",
+    )
+    parser.add_argument(
+        "-p", "--port",
+        default=8050,
+        type=int,
+        help="port to listen (default: 8050)",
     )
     parser.add_argument(
         "-l", "--log-file",
@@ -352,7 +347,7 @@ def main(argv=sys.argv):
         help="path to log file (default: /var/log/pifacedigitald.log)",
     )
     parser.add_argument(
-        "-p", "--pid-file",
+        "-P", "--pid-file",
         default="/var/run/pifacedigitald.pid",
         type=str,
         metavar="FILE",
@@ -374,9 +369,6 @@ def main(argv=sys.argv):
     )
     args = parser.parse_args(argv[1:])
 
-    host, port = args.listen
-    port = int(port) if port else 8050
-
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
@@ -395,7 +387,7 @@ def main(argv=sys.argv):
 
     pifacedigitalio.init()
     init_event_handler(args.on_event)
-    xmlrpc_serve(host, port)
+    xmlrpc_serve(args.host, args.port)
 
 
 if __name__ == "__main__":

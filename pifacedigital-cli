@@ -97,7 +97,7 @@ def main(argv=sys.argv):
         type=int,
         choices=range(8),
         metavar="0..7",
-        help="pin number (omit to read/write whole port)",
+        help="pin number (omit to read/write port)",
     )
     args = parser.parse_args(argv[1:])
 

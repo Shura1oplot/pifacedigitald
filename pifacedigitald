@@ -204,7 +204,7 @@ def xmlrpc_serve(host, port):
     server.register_function(read_input_port)
     server.register_function(read_input_pin)
 
-    logging.info("start XML-RPC server: http://{}:{}/ paths={}".format(
+    logging.info("start XML-RPC server: scheme=http host={} port={} paths={}".format(
         host, port, XMLRPCRequestHandler.rpc_paths))
     server.serve_forever()
 

@@ -3,6 +3,8 @@
 
 import sys
 import os
+import fcntl
+import errno
 import atexit
 import subprocess
 import logging
@@ -237,19 +239,19 @@ def daemonize(pidfile, stdout, stderr):
         sys.exit(0)
 
     # redirect standard file descriptors
-    si = open("/dev/null", "r")
+    si = open("/dev/null", "rb")
     os.dup2(si.fileno(), sys.stdin.fileno())
 
     sys.stdout.flush()
-    so = open(stdout, "a+")
+    so = open(stdout, "ab+")
     os.dup2(so.fileno(), sys.stdout.fileno())
 
     sys.stderr.flush()
-    se = open(stderr, "a+", 0)
+    se = open(stderr, "ab+", 0)
     os.dup2(se.fileno(), sys.stderr.fileno())
 
     atexit.register(lambda: os.remove(pidfile))
-    open(pidfile, "w+").write("{}\n".format(os.getpid()))
+    open(pidfile, "w").write("{}\n".format(os.getpid()))
 
 
 def hostPortType(value):

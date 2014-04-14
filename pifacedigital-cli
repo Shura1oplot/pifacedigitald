@@ -4,18 +4,12 @@
 import sys
 import os
 import argparse
+from textwrap import dedent
 from xmlrpc.client import ServerProxy
 
 
-__version_info__ = (0, 1, 0)
+__version_info__ = (0, 1, 1)
 __version__ = ".".join(map(str, __version_info__))
-
-
-def portType(value):
-    if value[0] == "i":
-        return "input"
-
-    return "output"
 
 
 def intType(value):
@@ -44,7 +38,12 @@ def main(argv=sys.argv):
     prog = os.path.basename(argv[0])
     parser = argparse.ArgumentParser(
         prog=prog,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
         description="PiFaceDigital client v{}".format(__version__),
+        epilog=dedent("""\
+            environment variables:
+              PIFACEDIGITAL_SERVER  XML-RPC server url
+        """),
     )
     parser.add_argument(
         "-v", "--version",
@@ -56,7 +55,7 @@ def main(argv=sys.argv):
         default=os.environ.get("PIFACEDIGITAL_SERVER", "http://localhost:8050/RPC2"),
         type=str,
         metavar="URL",
-        help="xml-rpc server url (default: http://localhost:8050/RPC2)",
+        help="XML-RPC server url (default: http://localhost:8050/RPC2)",
     )
     parser.add_argument(
         "-a", "--address",
@@ -71,7 +70,7 @@ def main(argv=sys.argv):
         type=intType,
         dest="value",
         metavar="N",
-        help="write value to pin or port",
+        help="value to write to pin or port",
     )
     parser.add_argument(
         "-b", "--binary",
@@ -86,15 +85,9 @@ def main(argv=sys.argv):
         help="do not print result",
     )
     parser.add_argument(
-        "-e", "--exit-code",
-        action="store_true",
-        default=False,
-        help="result as return code",
-    )
-    parser.add_argument(
         "port",
-        type=portType,
-        choices=("i", "input", "o", "output"),
+        type=lambda value: {"i": "input", "o": "output"}.get(value, value),
+        choices=("input", "output"),
         metavar="i[nput]|o[utput]",
         help="port",
     )
@@ -133,28 +126,29 @@ def main(argv=sys.argv):
 
     proxy = ServerProxy(args.url)
 
-    if args.port == "output":
-        if args.value is None:
-            if args.pin is None:
-                result = proxy.read_output_port(args.address)
+    try:
+        if args.port == "output":
+            if args.value is None:
+                if args.pin is None:
+                    result = proxy.read_output_port(args.address)
+                else:
+                    result = proxy.read_output_pin(args.address, args.pin)
             else:
-                result = proxy.read_output_pin(args.address, args.pin)
+                if args.pin is None:
+                    result = proxy.write_output_port(args.address, args.value)
+                else:
+                    result = proxy.write_output_pin(args.address, args.pin, args.value)
         else:
             if args.pin is None:
-                result = proxy.write_output_port(args.address, args.value)
+                result = proxy.read_input_port(args.address)
             else:
-                result = proxy.write_output_pin(args.address, args.pin, args.value)
-    else:
-        if args.pin is None:
-            result = proxy.read_input_port(args.address)
-        else:
-            result = proxy.read_input_pin(args.address, args.pin)
+                result = proxy.read_input_pin(args.address, args.pin)
+    except ConnectionError:
+        print("server unreachable", file=sys.stderr)
+        return 1
 
     if not args.quite:
         print("{:{format}}".format(result, format="08b" if args.binary else "d"))
-
-    if args.exit_code:
-        return result
 
     return 0
 

@@ -313,7 +313,7 @@ class UnixFileLock(object):
 def main(argv=sys.argv):
     parser = argparse.ArgumentParser(
         prog=os.path.basename(argv[0]),
-        description="PiFaceDigital daemon v{}".format(__version__),
+        description="PiFace Digital daemon v{}".format(__version__),
     )
     parser.add_argument(
         "-v", "--version",
@@ -325,33 +325,33 @@ def main(argv=sys.argv):
         default="/etc/pifacedigitald/event",
         type=str,
         metavar="FILE",
-        help="file to execute on each event (default: /etc/pifacedigitald/event)",
+        help="file to execute on input port state changes (default: /etc/pifacedigitald/event)",
     )
     parser.add_argument(
         "-H", "--host",
         default="localhost",
         type=str,
-        help="host to listen (default: localhost)",
+        help="XML-RPC server host (default: localhost)",
     )
     parser.add_argument(
         "-p", "--port",
         default=8050,
         type=int,
-        help="port to listen (default: 8050)",
+        help="XML-RPC server port (default: 8050)",
     )
     parser.add_argument(
         "-l", "--log-file",
         default="/var/log/pifacedigitald.log",
         type=str,
         metavar="FILE",
-        help="path to log file (default: /var/log/pifacedigitald.log)",
+        help="log file path (default: /var/log/pifacedigitald.log)",
     )
     parser.add_argument(
         "-P", "--pid-file",
         default="/var/run/pifacedigitald.pid",
         type=str,
         metavar="FILE",
-        help="path to pid file (default: /var/run/pifacedigitald.pid)",
+        help="pid file path (default: /var/run/pifacedigitald.pid)",
     )
     parser.add_argument(
         "-o", "--stdout",

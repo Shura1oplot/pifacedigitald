@@ -16,7 +16,7 @@ from pifacedigitalio import MAX_BOARDS
 from pifacedigitalio.core import _get_pifacedigital
 
 
-__version_info__ = (0, 1, 0)
+__version_info__ = (0, 1, 1)
 __version__ = ".".join(map(str, __version_info__))
 
 
@@ -254,6 +254,63 @@ def daemonize(pidfile, stdout, stderr):
     open(pidfile, "w").write("{}\n".format(os.getpid()))
 
 
+class AlreadyLocked(IOError):
+    pass
+
+
+class ReleaseError(IOError):
+    pass
+
+
+class UnixFileLock(object):
+
+    def __init__(self, lock_file):
+        super(UnixFileLock, self).__init__()
+
+        self.lock_file = lock_file
+        self.__fd = open(lock_file, "wb")
+
+    def acquire(self, blocking=False):
+        op = fcntl.LOCK_EX
+
+        if not blocking:
+            op |= fcntl.LOCK_NB
+
+        try:
+            fcntl.flock(self.__fd, op)
+        except IOError as e:
+            if e.errno != errno.EAGAIN:
+                raise
+
+            raise AlreadyLocked()
+
+    def release(self):
+        fcntl.flock(self.__fd, fcntl.LOCK_UN)
+
+        if self.is_locked():
+            raise ReleaseError()
+
+    def is_locked(self):
+        try:
+            fcntl.flock(self.__fd, fcntl.LOCK_EX)
+        except IOError as e:
+            if e.errno != errno.EAGAIN:
+                raise
+
+            fcntl.flock(self.__fd, fcntl.LOCK_UN)
+
+            return True
+        else:
+            return False
+
+    def __enter__(self):
+        self.acquire()
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.release()
+
+
 def hostPortType(value):
     match = re.match(r"^(?P<host>.+?)(?::(?P<port>\d+))?$", value)
 
@@ -325,6 +382,14 @@ def main(argv=sys.argv):
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
         filename=args.log_file,
     )
+
+    lock = UnixFileLock("/var/lock/pifacedigitald.lock")
+
+    try:
+        lock.acquire()
+    except AlreadyLocked:
+        print("error: program already running", file=sys.stderr)
+        return 1
 
     daemonize(args.pid_file, args.stdout, args.stderr)
 

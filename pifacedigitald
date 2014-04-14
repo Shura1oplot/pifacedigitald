@@ -299,6 +299,7 @@ class UnixFileLock(object):
             fcntl.flock(self.__fd, fcntl.LOCK_UN)
 
             return True
+
         else:
             return False
 

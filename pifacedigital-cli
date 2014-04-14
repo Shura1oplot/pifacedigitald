@@ -143,6 +143,7 @@ def main(argv=sys.argv):
                 result = proxy.read_input_port(args.address)
             else:
                 result = proxy.read_input_pin(args.address, args.pin)
+
     except ConnectionError:
         print("server unreachable", file=sys.stderr)
         return 1

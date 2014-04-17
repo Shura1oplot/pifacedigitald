@@ -3,8 +3,8 @@ PiFace Digital Daemon
 
 Features:
 
-1. local or remote clients can communicate with IO ports using XML-RPC
-2. files in `/etc/pifacedigitald/event.d` are executed on buttons events
+1. daemon allows to communicate with IO ports using XML-RPC over the lan or the Internet;
+2. daemon executes files in `/etc/pifacedigitald/event.d` on each input port state change.
 
 Usage
 -----
@@ -35,7 +35,7 @@ optional arguments:
                         redirect stderr to file
 ```
 
-Put executable files to `/etc/pifacedigitald/event.d` and they will be executed on each input port state change. For additional information read `/etc/pifacedigitald/event`.
+Put executable files into `/etc/pifacedigitald/event.d` and they will be executed on each input port state change. For additional information read `/etc/pifacedigitald/event`.
 
 **pifacedigital-cli** can be executed on any computer which connected to the raspberry pi with pifacedigitald running.
 

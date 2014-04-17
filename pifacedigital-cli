@@ -104,25 +104,16 @@ def main(argv=sys.argv):
     if args.value:
         if args.pin:
             if args.value not in (0, 1):
-                parser.print_usage(file=sys.stderr)
-                print(("{}: error: argument -w/--write: invalid value: {} "
-                       "(expected 0 or 1)").format(prog, args.value),
-                      file=sys.stderr)
-                return 1
+                parser.error(("argument -w/--write: invalid value: {} "
+                              "(expected 0 or 1)").format(args.value))
 
         else:
             if not 0 <= args.value <= 255:
-                parser.print_usage(file=sys.stderr)
-                print(("{}: error: argument -w/--write: invalid value: {} "
-                       "(choose from 0..255)").format(prog, args.value),
-                      file=sys.stderr)
-                return 1
+                parser.error(("argument -w/--write: invalid value: {} "
+                              "(choose from 0..255)").format(args.value))
 
         if args.port == "input":
-            parser.print_usage(file=sys.stderr)
-            print("{}: error: argument -w/--write: cannot write to input port".format(prog),
-                  file=sys.stderr)
-            return 1
+            parser.error("argument -w/--write: cannot write to input port")
 
     proxy = ServerProxy(args.url)
 

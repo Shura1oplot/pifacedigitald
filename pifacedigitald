@@ -15,7 +15,7 @@ from pifacedigitalio import MAX_BOARDS
 from pifacedigitalio.core import _get_pifacedigital
 
 
-__version_info__ = (0, 1, 1)
+__version_info__ = (0, 1, 2)
 __version__ = ".".join(map(str, __version_info__))
 
 
@@ -36,7 +36,7 @@ def _check_hardware_addr(hardware_addr):
         raise TypeError(
             "hardware_addr must be in {lower_addr}..{higher_addr}".format(
                 lower_addr=0,
-                higher_addr=MAX_BOARDS-1,
+                higher_addr=MAX_BOARDS - 1,
             )
         )
 
@@ -58,7 +58,7 @@ def _check_pin_value(value):
 def _check_port_value(value):
     _check_type(value, int)
 
-    if not (0 <= value <= 255):
+    if value < 0 or value > 255:
         raise TypeError("value must be in 0..255")
 
 
@@ -189,7 +189,7 @@ def xmlrpc_serve(host, port):
 
         rpc_paths = ("/RPC2", )
 
-        def log_message(self, format, *args):
+        def log_message(self, format, *args):  # pylint: disable=W0622
             logging.info("HTTP server: %s - - [%s] %s", self.address_string(),
                          self.log_date_time_string(), format % args)
 
@@ -249,8 +249,9 @@ def daemonize(pidfile, stdout, stderr):
     se = open(stderr, "a+b", 0)
     os.dup2(se.fileno(), sys.stderr.fileno())
 
-    atexit.register(lambda: os.remove(pidfile))
-    open(pidfile, "w").write("{}\n".format(os.getpid()))
+    if pidfile:
+        atexit.register(lambda: os.remove(pidfile))
+        open(pidfile, "w").write("{}\n".format(os.getpid()))
 
 
 class AlreadyLocked(IOError):
@@ -341,8 +342,13 @@ def main(argv=sys.argv):
         help="XML-RPC server port (default: 8050)",
     )
     parser.add_argument(
+        "-f", "--foreground",
+        action="store_true",
+        default=False,
+        help="do not detach from the shell",
+    )
+    parser.add_argument(
         "-l", "--log-file",
-        default="/var/log/pifacedigitald.log",
         type=str,
         metavar="FILE",
         help="log file path (default: /var/log/pifacedigitald.log)",
@@ -352,23 +358,27 @@ def main(argv=sys.argv):
         default="/var/run/pifacedigitald.pid",
         type=str,
         metavar="FILE",
-        help="pid file path (default: /var/run/pifacedigitald.pid)",
+        help=("pid file path (default: /var/run/pifacedigitald.pid, "
+              "not available in foreground mode)"),
     )
     parser.add_argument(
         "-o", "--stdout",
         default="/dev/null",
         type=str,
         metavar="FILE",
-        help="redirect stdout to file",
+        help="redirect stdout to file (not available in foreground mode)",
     )
     parser.add_argument(
         "-e", "--stderr",
         default="/dev/null",
         type=str,
         metavar="FILE",
-        help="redirect stderr to file",
+        help="redirect stderr to file (not available in foreground mode)",
     )
     args = parser.parse_args(argv[1:])
+
+    if not args.log_file and not args.foreground:
+        args.log_file = "/var/log/pifacedigitald.log"
 
     logging.basicConfig(
         level=logging.INFO,
@@ -384,10 +394,12 @@ def main(argv=sys.argv):
         print("error: program already running", file=sys.stderr)
         return 1
 
-    daemonize(args.pid_file, args.stdout, args.stderr)
+    if not args.foreground:
+        daemonize(args.pid_file, args.stdout, args.stderr)
 
     pifacedigitalio.init()
     init_event_handler(args.on_event)
+
     xmlrpc_serve(args.host, args.port)
 
 

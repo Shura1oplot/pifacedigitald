@@ -8,7 +8,7 @@ from textwrap import dedent
 from xmlrpc.client import ServerProxy
 
 
-__version_info__ = (0, 1, 1)
+__version_info__ = (0, 1, 2)
 __version__ = ".".join(map(str, __version_info__))
 
 
@@ -42,7 +42,7 @@ def main(argv=sys.argv):
         description="PiFaceDigital client v{}".format(__version__),
         epilog=dedent("""\
             environment variables:
-              PIFACEDIGITAL_SERVER  XML-RPC server url
+              PFD_RPC_URL  PiFaceDigital XML-RPC server url
         """),
     )
     parser.add_argument(
@@ -52,7 +52,7 @@ def main(argv=sys.argv):
     )
     parser.add_argument(
         "-u", "--url",
-        default=os.environ.get("PIFACEDIGITAL_SERVER", "http://localhost:8050/RPC2"),
+        default=os.environ.get("PFD_RPC_URL", "http://localhost:8050/RPC2"),
         type=str,
         metavar="URL",
         help="XML-RPC server url (default: http://localhost:8050/RPC2)",
@@ -86,9 +86,10 @@ def main(argv=sys.argv):
     )
     parser.add_argument(
         "port",
-        type=lambda value: {"i": "input", "o": "output"}.get(value, value),
+        type=lambda value: {"i": "input", "in": "input", "o": "output",
+                            "out": "output"}.get(value, value),
         choices=("input", "output"),
-        metavar="i[nput]|o[utput]",
+        metavar="i|in[put]|o|out[put]",
         help="port",
     )
     parser.add_argument(

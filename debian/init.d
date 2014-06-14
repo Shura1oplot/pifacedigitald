@@ -7,7 +7,7 @@
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: PiFace Digital daemon.
-# Description:       PiFace Digital daemon. XML-RPC server + easy event handle with bash.
+# Description:       PiFace Digital daemon. XML-RPC server + easy event handle with shell scripts.
 ### END INIT INFO
 
 # Author: Alexander Gordeyev <s0meuser@yandex.ru>
@@ -24,8 +24,15 @@ SCRIPTNAME=/etc/init.d/$NAME
 # Exit if the package is not installed
 [ -x "$DAEMON" ] || exit 0
 
+RUN=no
+
 # Read configuration variable file if it is present
 [ -r /etc/default/$NAME ] && . /etc/default/$NAME
+
+if [ "$RUN" != "yes" ]; then
+    echo "$NAME disabled; edit /etc/default/$NAME"
+    exit 0
+fi
 
 # Load the VERBOSE setting and other rcS variables
 . /lib/init/vars.sh
@@ -44,10 +51,11 @@ do_start()
 	#   0 if daemon has been started
 	#   1 if daemon was already running
 	#   2 if daemon could not be started
-	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null \
+	start-stop-daemon --start --quiet --pidfile $PIDFILE --startas $DAEMON \
+		--name $NAME --test > /dev/null \
 		|| return 1
-	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- \
-		$DAEMON_ARGS \
+	start-stop-daemon --start --quiet --pidfile $PIDFILE --startas $DAEMON \
+		--name $NAME -- $DAEMON_ARGS \
 		|| return 2
 	# Add code here, if necessary, that waits for the process to be ready
 	# to handle requests from services started subsequently which depend

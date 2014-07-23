@@ -21,8 +21,8 @@ optional arguments:
   -h, --help            show this help message and exit
   -v, --version         show program's version number and exit
   -E FILE, --on-event FILE
-                        file to execute on input port state changes (default:
-                        /etc/pifacedigitald/event)
+                        file to execute when input port state changes
+                        (default: /etc/pifacedigitald/event)
   -H HOST, --host HOST  XML-RPC server host (default: localhost)
   -p PORT, --port PORT  XML-RPC server port (default: 8050)
   -l FILE, --log-file FILE
@@ -47,7 +47,7 @@ PiFaceDigital client v0.1.1
 
 positional arguments:
   i[nput]|o[utput]      port
-  0..7                  pin number (omit to read/write port)
+  0..7                  pin number (omit to use the port)
 
 optional arguments:
   -h, --help            show this help message and exit

@@ -327,7 +327,7 @@ def main(argv=sys.argv):
         default="/etc/pifacedigitald/event",
         type=str,
         metavar="FILE",
-        help="file to execute on input port state changes (default: /etc/pifacedigitald/event)",
+        help="file to execute when input port state changes (default: /etc/pifacedigitald/event)",
     )
     parser.add_argument(
         "-H", "--host",
@@ -344,7 +344,6 @@ def main(argv=sys.argv):
     parser.add_argument(
         "-f", "--foreground",
         action="store_true",
-        default=False,
         help="do not detach from the shell",
     )
     parser.add_argument(

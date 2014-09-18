@@ -313,8 +313,9 @@ class UnixFileLock(object):
 
 
 def main(argv=sys.argv):
+    prog = os.path.basename(argv[0])
     parser = argparse.ArgumentParser(
-        prog=os.path.basename(argv[0]),
+        prog=prog,
         description="PiFace Digital daemon v{}".format(__version__),
     )
     parser.add_argument(
@@ -390,7 +391,7 @@ def main(argv=sys.argv):
     try:
         lock.acquire()
     except AlreadyLocked:
-        print("error: program already running", file=sys.stderr)
+        print("{}: program already running".format(prog), file=sys.stderr)
         return 1
 
     if not args.foreground:

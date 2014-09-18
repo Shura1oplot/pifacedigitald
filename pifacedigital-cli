@@ -42,7 +42,7 @@ def main(argv=sys.argv):
         description="PiFaceDigital client v{}".format(__version__),
         epilog=dedent("""\
             environment variables:
-              PFD_RPC_URL  PiFaceDigital XML-RPC server url
+              PFD_RPC_URL           PiFaceDigital XML-RPC server url
         """),
     )
     parser.add_argument(
@@ -137,7 +137,7 @@ def main(argv=sys.argv):
                 result = proxy.read_input_pin(args.address, args.pin)
 
     except ConnectionError:
-        print("server unreachable", file=sys.stderr)
+        print("{}: server unreachable".format(prog), file=sys.stderr)
         return 1
 
     if not args.quite:

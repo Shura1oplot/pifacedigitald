@@ -21,12 +21,8 @@ __version__ = ".".join(map(str, __version_info__))
 
 def _check_type(object_, type_):
     if not isinstance(object_, type_):
-        raise TypeError(
-            "hardware_addr must be {}, not {}".format(
-                type_.__name__,
-                object_.__class__.__name__,
-            )
-        )
+        raise TypeError("hardware_addr must be {}, not {}".format(
+            type_.__name__, object_.__class__.__name__))
 
 
 def _check_hardware_addr(hardware_addr):
@@ -143,6 +139,14 @@ def init_event_handler(exe_path):
     dev_null_r = open("/dev/null", "r")
     dev_null_w = open("/dev/null", "w")
 
+    def quote(s):
+        c = "'" if "'" not in s or '"' in s else '"'
+        escape = {"\0": "\\0", "\a": "\\a", "\b": "\\b", "\t": "\\t",
+                  "\n": "\\n", "\v": "\\v", "\f": "\\f", "\r": "\\r",
+                  "\\": "\\\\"}
+        escape[c] = "\\{}".format(c)
+        return "".join((c, "".join(escape.get(c, c) for c in s), c))
+
     def on_event(address, pin_num, direction, timestamp):
         logging.info("event: address={} pin_num={} direction={} timestamp={}".format(
             address, pin_num, direction, timestamp))
@@ -156,7 +160,7 @@ def init_event_handler(exe_path):
                                   stderr=dev_null_w, env={})
 
         if retcode != 0:
-            logging.error("'{}' dies with {} code".format(retcode))
+            logging.error("{} dies with {} code".format(quote(exe_path), retcode))
 
     def get_handler(address):
         def handler(event):
@@ -345,7 +349,7 @@ def main(argv=sys.argv):
     parser.add_argument(
         "-f", "--foreground",
         action="store_true",
-        help="do not detach from the shell",
+        help="do not detach from the terminal",
     )
     parser.add_argument(
         "-l", "--log-file",

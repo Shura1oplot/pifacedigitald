@@ -75,13 +75,11 @@ def main(argv=sys.argv):
     parser.add_argument(
         "-b", "--binary",
         action="store_true",
-        default=False,
         help="print result in binary format",
     )
     parser.add_argument(
         "-q", "--quite",
         action="store_true",
-        default=False,
         help="do not print result",
     )
     parser.add_argument(
